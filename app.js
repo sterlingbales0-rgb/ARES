@@ -1,11 +1,20 @@
 // Cachy Chat — plain HTML/CSS/JS, no build step. Talks to OpenRouter straight from the browser.
 const $ = s => document.querySelector(s);
-const DEF = { key: "", model: "nvidia/nemotron-3-ultra-550b-a55b", temperature: 0.7, maxTokens: 4096, system: "You are a precise, concise assistant." };
+const DEF = { key: "", model: "nvidia/nemotron-3-ultra-550b-a55b:free", temperature: 0.7, maxTokens: 4096, system: "You are a precise, concise assistant." };
+const I = p => `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const ICON = {
+  send: I('<path d="M12 19V5M5 12l7-7 7 7"/>'), stop: I('<rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/>'),
+  copy: I('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>'), check: I('<path d="M5 12.5 10 17.5 19 7"/>'),
+  edit: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+  regen: I('<path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>'),
+  x: I('<path d="M18 6 6 18M6 6l12 12"/>'), logo: I('<path d="M12 3 4 7.5v9L12 21l8-4.5v-9Z"/><path d="M12 8v8M8 10l8 4"/>')
+};
 const uid = () => Math.random().toString(36).slice(2, 10);
 const fresh = () => ({ id: uid(), title: "New chat", messages: [] });
 let convs = [], active = "", cfg = { ...DEF }, busy = false, ctrl = null;
 
 try { convs = JSON.parse(localStorage.getItem("cc.convs") || "[]"); cfg = { ...DEF, ...JSON.parse(localStorage.getItem("cc.cfg") || "{}") }; } catch {}
+if (cfg.model === "nvidia/nemotron-3-ultra-550b-a55b") cfg.model += ":free";
 if (!convs.length) convs = [fresh()];
 active = convs[0].id;
 const save = () => { try { localStorage.setItem("cc.convs", JSON.stringify(convs)); localStorage.setItem("cc.cfg", JSON.stringify(cfg)); } catch {} };
@@ -17,18 +26,18 @@ const time = ts => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute
 function showErr(t) { const e = $("#err"); e.textContent = t || ""; e.hidden = !t; }
 
 function renderList() {
-  $("#list").innerHTML = convs.map(c => `<div class="item ${c.id === active ? "on" : ""}" data-id="${c.id}"><span>${esc(c.title)}</span><button data-del="${c.id}" aria-label="Delete chat">✕</button></div>`).join("");
+  $("#list").innerHTML = convs.map(c => `<div class="item ${c.id === active ? "on" : ""}" data-id="${c.id}"><span>${esc(c.title)}</span><button data-del="${c.id}" aria-label="Delete chat">${ICON.x}</button></div>`).join("");
 }
 
 function bubble(m, i, last) {
   const d = document.createElement("div");
   d.className = "msg " + m.role;
-  const acts = `<button class="ib" data-a="copy">Copy</button>` +
-    (m.role === "user" ? `<button class="ib" data-a="edit">Edit</button>` : "") +
-    (m.role === "assistant" && last && !busy ? `<button class="ib" data-a="regen">Regenerate</button>` : "");
-  d.innerHTML = `<div class="bubble glass" data-i="${i}"><div class="meta">${m.role === "user" ? "You" : `<span class="m">${esc((m.model || "").split("/").pop())}</span>`}<span>${time(m.ts)}</span></div><div class="body"></div><div class="acts">${acts}</div></div>`;
+  const btn = (a, ic, t) => `<button class="ib" data-a="${a}" title="${t}" aria-label="${t}">${ic}</button>`;
+  const acts = btn("copy", ICON.copy, "Copy") + (m.role === "user" ? btn("edit", ICON.edit, "Edit") : "") +
+    (m.role === "assistant" && last && !busy ? btn("regen", ICON.regen, "Regenerate") : "");
+  d.innerHTML = `${m.role === "assistant" ? `<div class="av">${ICON.logo}</div>` : ""}<div class="bubble" data-i="${i}"><div class="meta"><span>${esc((m.model || "").split("/").pop())}</span><span>${time(m.ts)}</span></div><div class="body"></div><div class="acts">${acts}</div></div>`;
   const body = d.querySelector(".body");
-  if (m.role === "user") body.innerHTML = `<p>${esc(m.content).replace(/\n/g, "<br>")}</p>`;
+  if (m.role === "user") body.innerHTML = `<p style="margin:0">${esc(m.content).replace(/\n/g, "<br>")}</p>`;
   else body.innerHTML = m.content ? md(m.content) : `<div class="shimmer" aria-label="Thinking"></div>`;
   return d;
 }
@@ -40,7 +49,8 @@ function renderMsgs() {
   c.messages.forEach((m, i) => box.appendChild(bubble(m, i, i === c.messages.length - 1)));
   $("#scroll").scrollTop = $("#scroll").scrollHeight;
 }
-function render() { renderList(); renderMsgs(); const b = $("#send"); b.textContent = busy ? "■" : "➤"; b.classList.toggle("stop", busy); }
+const badge = () => { $("#badge").textContent = cfg.model.split("/").pop(); };
+function render() { badge(); renderList(); renderMsgs(); const b = $("#send"); b.innerHTML = busy ? ICON.stop : ICON.send; b.classList.toggle("stop", busy); }
 
 async function send(history) {
   if (!cfg.key) { openSettings(); showErr("Add your OpenRouter API key in Settings to start chatting."); return; }
@@ -105,11 +115,11 @@ $("#list").onclick = e => {
 $("#msgs").onclick = e => {
   const b = e.target.closest("[data-a]"); if (!b) return;
   const c = conv(), i = +b.closest(".bubble").dataset.i, m = c.messages[i];
-  if (b.dataset.a === "copy") { navigator.clipboard.writeText(m.content); b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy", 1200); }
+  if (b.dataset.a === "copy") { navigator.clipboard.writeText(m.content); b.innerHTML = ICON.check; setTimeout(() => b.innerHTML = ICON.copy, 1200); }
   if (b.dataset.a === "regen" && !busy) send(c.messages.slice(0, -1));
   if (b.dataset.a === "edit") {
     const body = b.closest(".bubble").querySelector(".body");
-    body.innerHTML = `<textarea rows="3">${esc(m.content)}</textarea><div class="acts" style="opacity:1"><button class="ib" data-a="cancel">Cancel</button><button class="ib" data-a="save">Save & resend</button></div>`;
+    body.innerHTML = `<textarea rows="3">${esc(m.content)}</textarea><div class="acts" style="opacity:1"><button class="ib txt" data-a="cancel">Cancel</button><button class="ib txt" data-a="save">Save & resend</button></div>`;
   }
   if (b.dataset.a === "cancel") renderMsgs();
   if (b.dataset.a === "save") { const v = b.closest(".body").querySelector("textarea").value.trim(); if (v && !busy) send([...c.messages.slice(0, i), { ...m, content: v }]); }
@@ -127,7 +137,7 @@ $("#open-settings").onclick = openSettings; $("#close-settings").onclick = close
 $("#modal").onclick = e => { if (e.target.id === "modal") closeSettings(); };
 $("#showkey").onclick = () => { const k = $("#key"); k.type = k.type === "password" ? "text" : "password"; };
 $("#key").oninput = e => { cfg.key = e.target.value.trim(); save(); };
-$("#model").oninput = e => { cfg.model = e.target.value.trim() || DEF.model; save(); };
+$("#model").oninput = e => { cfg.model = e.target.value.trim() || DEF.model; save(); badge(); };
 $("#temp").oninput = e => { cfg.temperature = +e.target.value; $("#tval").textContent = cfg.temperature; save(); };
 $("#maxt").oninput = e => { cfg.maxTokens = +e.target.value || DEF.maxTokens; save(); };
 $("#sys").oninput = e => { cfg.system = e.target.value; save(); };
@@ -140,5 +150,7 @@ addEventListener("keydown", e => {
 });
 addEventListener("pointermove", e => { const s = document.documentElement.style; s.setProperty("--mx", e.clientX + "px"); s.setProperty("--my", e.clientY + "px"); });
 
+$("#badge-btn").onclick = openSettings;
+document.querySelectorAll(".chip").forEach(c => c.onclick = () => { $("#input").value = c.textContent; submit(); });
 render();
 if (!cfg.key) openSettings();
