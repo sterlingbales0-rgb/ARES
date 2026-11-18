@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cachy Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@300;500&family=Geist:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="mesh"></div><div class="noise"></div>
+<div class="app">
+  <aside id="side" class="glass">
+    <div class="side-top">
+      <button class="ib" id="rail" aria-label="Collapse sidebar">☰</button>
+      <span class="brand">cachy<b>/</b>chat</span>
+    </div>
+    <button id="new" class="newbtn">+ <span class="lbl">New chat <kbd>Ctrl K</kbd></span></button>
+    <div id="list"></div>
+    <div class="side-bot">
+      <button class="ib" id="open-settings" aria-label="Settings">⚙</button>
+      <button class="ib" id="export" aria-label="Export as Markdown">⭳</button>
+    </div>
+  </aside>
+  <main>
+    <button class="ib menu" id="menu" aria-label="Open sidebar">☰</button>
+    <div id="scroll"><div id="wrap">
+      <div id="hero"><h1>Ask anything.<br><span>Get it at full speed.</span></h1>
+        <p>Paste your OpenRouter key in Settings and start chatting. Your key never leaves your browser except to talk to OpenRouter.</p></div>
+      <div id="msgs"></div><div id="err" hidden></div>
+    </div></div>
+    <div class="inputbar"><div class="input glass">
+      <textarea id="input" rows="1" placeholder="Message the model…"></textarea>
+      <button id="send" aria-label="Send">➤</button>
+    </div></div>
+  </main>
+</div>
+
+<div id="modal" hidden><div class="glass card">
+  <div class="row"><h2>Settings</h2><button class="ib" id="close-settings">✕</button></div>
+  <label>OpenRouter API key
+    <div class="keyrow"><input id="key" type="password" placeholder="sk-or-v1-…" autocomplete="off"><button class="ib" id="showkey" type="button">👁</button></div></label>
+  <label>Model <input id="model"></label>
+  <div class="two">
+    <label>Temperature <span id="tval"></span><input id="temp" type="range" min="0" max="2" step="0.1"></label>
+    <label>Max tokens <input id="maxt" type="number" min="1"></label>
+  </div>
+  <label>System prompt <textarea id="sys" rows="3"></textarea></label>
+  <button class="link" id="clear">Clear this chat</button>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
